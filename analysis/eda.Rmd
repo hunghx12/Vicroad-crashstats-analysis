@@ -1,0 +1,131 @@
+---
+title: "eda"
+author: "Xuan Hung Ho"
+date: "2023-08-25"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#install.packages(c("dplyr", "ggplot2", "corrplot"))
+library(dplyr)
+library(tidyr)
+library(tidyr)
+library(ggplot2)
+library(corrplot)
+```
+
+
+```{r load data}
+accidents = read.csv('../data/clean/ACCIDENT.csv')
+
+# locations = read.csv('../data/clean/ACCIDENT_LOCATION.csv')
+# 
+# atmospheric_conds = read.csv('../data/clean/ATMOSPHERIC_COND.csv')
+# 
+# nodes = read.csv('../data/clean/NODE.csv')
+# 
+# persons = read.csv('../data/clean/PERSON.csv')
+# 
+# road_surface_conds = read.csv('../data/clean/ROAD_SURFACE_COND.csv')
+# 
+# vehicles = read.csv('../data/clean/VEHICLE.csv')
+```
+
+## 1. Accidents analysis
+
+### 1.1. Univariate analysis
+```{r}
+summary(accidents)
+```
+
+```{r}
+accidents$ACCIDENT_TYPE <- as.factor(accidents$ACCIDENT_TYPE)
+
+accidents$DAY_OF_WEEK <- as.factor(accidents$DAY_OF_WEEK)
+accidents$Day.Week.Description <- as.factor(accidents$Day.Week.Description)
+
+accidents$ACCIDENT_TYPE <- as.factor(accidents$ACCIDENT_TYPE)
+accidents$Accident.Type.Desc <- as.factor(accidents$Accident.Type.Desc)
+
+accidents$DCA_CODE <- as.factor(accidents$DCA_CODE)
+accidents$DCA.Description <- as.factor(accidents$DCA.Description)
+
+accidents$NODE_ID <- as.factor(accidents$NODE_ID)
+
+accidents$LIGHT_CONDITION <- as.factor(accidents$LIGHT_CONDITION)
+accidents$Light.Condition.Desc <- as.factor(accidents$Light.Condition.Desc)
+
+accidents$ROAD_GEOMETRY <- as.factor(accidents$ROAD_GEOMETRY)
+accidents$Road.Geometry.Desc <- as.factor(accidents$Road.Geometry.Desc)
+
+accidents$SEVERITY <- factor(accidents$SEVERITY, ordered = TRUE, 
+                                levels = c(1, 2, 3, 4))
+
+accidents$SPEED_ZONE <- as.factor(accidents$SPEED_ZONE)
+```
+
+
+```{r}
+ggplot(accidents, aes(Day.Week.Description)) + 
+  geom_bar(width = 0.5) +
+  theme_minimal() +
+  labs(title="Distribution of Day of week", x = NULL, y = NULL)
+```
+
+It can be seen that accidents tend to happen more during Thursday and Friday, but the differences among days of week are not significant.
+
+```{r}
+ggplot(accidents, aes(SPEED_ZONE)) + 
+  geom_bar() +
+  theme_minimal() +
+  labs(title="Distribution of Speed Zone", x = "Speed zone", y = NULL)
+```
+
+From this graph we can see there are couples of outliers. We will remove them before procceding further.
+
+```{r}
+accidents = accidents[as.numeric(as.character(accidents$SPEED_ZONE)) < 200, ]
+accidents$SPEED_ZONE <- factor(accidents$SPEED_ZONE, ordered = TRUE, 
+                                levels = c(30, 40, 50, 60, 70, 
+                                           75, 80, 90, 100, 110))
+
+ggplot(accidents, aes(SPEED_ZONE)) + 
+  geom_bar() +
+  theme_minimal() +
+  labs(title="Distribution of Speed Zone", x = "Speed zone", y="Count")
+```
+We observe that most of the accidents happened in the 60km/h zone, which we are not expected.
+
+```{r}
+ggplot(accidents, aes(Road.Geometry.Desc)) + 
+  geom_bar() +
+  theme_minimal() +
+  labs(title="Distribution of Geometry design of roads", 
+       x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.5))
+```
+
+We can conclude that more accidents took places on the road, not at intersections.
+
+### 1.2. Bivariate analysis
+
+We want to display the percentage of cases within each speed zone against the severity of crashes.
+
+```{r}
+aggregated_data <- accidents %>%
+  group_by(SPEED_ZONE, SEVERITY) %>%
+  tally() %>%
+  group_by(SPEED_ZONE) %>%
+  mutate(Percentage = n/sum(n) * 100)
+
+ggplot(aggregated_data, aes(x = SPEED_ZONE, y = SEVERITY, fill = Percentage)) +
+  geom_tile() + 
+  scale_fill_gradient(low="white", high="red", name="% of Cases") + 
+  labs(title="Heatmap of Speed Zones vs. Severity Percentage", 
+       x="Speed Zone", y="Severity") + 
+  theme_minimal()
+```
+
+From the heap map, we can say that in speed zone of 30 to 60km/h, there is higher chance that accidents is more severe.
