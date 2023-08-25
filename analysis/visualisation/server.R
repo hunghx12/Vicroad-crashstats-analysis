@@ -14,7 +14,7 @@ library(dplyr)
 nodes = read.csv('../../data/clean/NODE.csv')
 
 function(input, output, session) {
-  output$melbourneMap <- renderLeaflet({
+  output$vicMap <- renderLeaflet({
     leaflet(data = nodes) %>%
       addProviderTiles("CartoDB.Positron") %>%
       setView(lat = -36.9848, lng = 143.3906, zoom = 6.2) %>%

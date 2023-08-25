@@ -16,5 +16,5 @@ fluidPage(
          ')
   )),
   titlePanel("Crash Stats"),
-  leafletOutput("melbourneMap", height = 600)
+  leafletOutput("vicMap", height = 600)
 )

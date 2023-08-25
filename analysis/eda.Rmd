@@ -168,13 +168,13 @@ ggplot(aggregated_data, aes(x = SPEED_ZONE, y = SEVERITY, fill = Percentage)) +
 ```
 
 ```{r}
-# add_model = multinom(SEVERITY ~ Light.Condition.Desc + SPEED_ZONE +
-#                   Road.Geometry.Desc, data = accidents)
-# 
-# interactive_model = multinom(SEVERITY ~ (Light.Condition.Desc + SPEED_ZONE +
-#                           Road.Geometry.Desc)^2, data = accidents)
+add_model = multinom(SEVERITY ~ Light.Condition.Desc + SPEED_ZONE +
+                  Road.Geometry.Desc, data = accidents)
 
-AIC(add_model, interactive_model)
+interactive_model = multinom(SEVERITY ~ (Light.Condition.Desc + SPEED_ZONE +
+                          Road.Geometry.Desc)^2, data = accidents)
+
+anova(add_model, interactive_model, test = "Chi")
 ```
-
+Since p-value equals 1, we have no evidence against the null hypothesis, which is the addictive model, i.e., we do not need interaction terms for the model.
 
