@@ -6,4 +6,4 @@ Download the data set from the link above, unzip and move all files to `data` fo
 
 ## Data Cleaning
 
-Data cleaning can be done by script in `data-cleaning.ipynb` notebook.
+Data cleaning can be done by running the script in `data-cleaning.ipynb` notebook. All the clean data will be saved under `data/clean` folder.
