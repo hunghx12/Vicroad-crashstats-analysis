@@ -8,12 +8,12 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-#install.packages(c("dplyr", "ggplot2", "corrplot"))
+#install.packages(c("dplyr", "ggplot2")
 library(dplyr)
 library(tidyr)
 library(tidyr)
 library(ggplot2)
-library(corrplot)
+library(nnet)
 ```
 
 
@@ -109,6 +109,28 @@ ggplot(accidents, aes(Road.Geometry.Desc)) +
 
 We can conclude that more accidents took places on the road, not at intersections.
 
+```{r}
+ggplot(accidents, aes(Light.Condition.Desc)) + 
+  geom_bar() +
+  theme_minimal() +
+  labs(title="Distribution of Light condition during accidents", 
+       x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.5))
+```
+
+Most of the accidents were recorded during day.
+
+```{r}
+ggplot(accidents, aes(Accident.Type.Desc)) + 
+  geom_bar() +
+  theme_minimal() +
+  labs(title="Distribution of accident types", 
+       x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.7, vjust = 0.9))
+```
+
+Unsurprisingly, most of the accidents are between vehicles.
+
 ### 1.2. Bivariate analysis
 
 We want to display the percentage of cases within each speed zone against the severity of crashes.
@@ -129,3 +151,30 @@ ggplot(aggregated_data, aes(x = SPEED_ZONE, y = SEVERITY, fill = Percentage)) +
 ```
 
 From the heap map, we can say that in speed zone of 30 to 60km/h, there is higher chance that accidents is more severe.
+
+```{r}
+aggregated_data <- accidents %>%
+  group_by(SPEED_ZONE, SEVERITY) %>%
+  tally() %>%
+  group_by(SPEED_ZONE) %>%
+  mutate(Percentage = n/sum(n) * 100)
+
+ggplot(aggregated_data, aes(x = SPEED_ZONE, y = SEVERITY, fill = Percentage)) +
+  geom_tile() + 
+  scale_fill_gradient(low="white", high="red", name="% of Cases") + 
+  labs(title="Heatmap of Speed Zones vs. Severity Percentage", 
+       x="Speed Zone", y="Severity") + 
+  theme_minimal()
+```
+
+```{r}
+# add_model = multinom(SEVERITY ~ Light.Condition.Desc + SPEED_ZONE +
+#                   Road.Geometry.Desc, data = accidents)
+# 
+# interactive_model = multinom(SEVERITY ~ (Light.Condition.Desc + SPEED_ZONE +
+#                           Road.Geometry.Desc)^2, data = accidents)
+
+AIC(add_model, interactive_model)
+```
+
+
