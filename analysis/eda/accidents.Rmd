@@ -1,5 +1,5 @@
 ---
-title: "eda"
+title: "accidents"
 author: "Xuan Hung Ho"
 date: "2023-08-25"
 output: pdf_document
@@ -18,7 +18,7 @@ library(nnet)
 
 
 ```{r load data}
-accidents = read.csv('../data/clean/ACCIDENT.csv')
+accidents = read.csv('../../data/clean/ACCIDENT.csv', header = TRUE)
 
 # locations = read.csv('../data/clean/ACCIDENT_LOCATION.csv')
 # 
@@ -131,6 +131,13 @@ ggplot(accidents, aes(Accident.Type.Desc)) +
 
 Unsurprisingly, most of the accidents are between vehicles.
 
+```{r}
+ggplot(accidents, aes(SEVERITY)) + 
+  geom_bar(width = 0.5) +
+  theme_minimal() +
+  labs(title="Distribution of Severity", x = NULL, y = NULL)
+```
+
 ### 1.2. Bivariate analysis
 
 We want to display the percentage of cases within each speed zone against the severity of crashes.
@@ -152,20 +159,6 @@ ggplot(aggregated_data, aes(x = SPEED_ZONE, y = SEVERITY, fill = Percentage)) +
 
 From the heap map, we can say that in speed zone of 30 to 60km/h, there is higher chance that accidents is more severe.
 
-```{r}
-aggregated_data <- accidents %>%
-  group_by(SPEED_ZONE, SEVERITY) %>%
-  tally() %>%
-  group_by(SPEED_ZONE) %>%
-  mutate(Percentage = n/sum(n) * 100)
-
-ggplot(aggregated_data, aes(x = SPEED_ZONE, y = SEVERITY, fill = Percentage)) +
-  geom_tile() + 
-  scale_fill_gradient(low="white", high="red", name="% of Cases") + 
-  labs(title="Heatmap of Speed Zones vs. Severity Percentage", 
-       x="Speed Zone", y="Severity") + 
-  theme_minimal()
-```
 
 ```{r}
 add_model = multinom(SEVERITY ~ Light.Condition.Desc + SPEED_ZONE +
@@ -177,4 +170,8 @@ interactive_model = multinom(SEVERITY ~ (Light.Condition.Desc + SPEED_ZONE +
 anova(add_model, interactive_model, test = "Chi")
 ```
 Since p-value equals 1, we have no evidence against the null hypothesis, which is the addictive model, i.e., we do not need interaction terms for the model.
+
+```{r}
+write.csv(accidents, '../../data/clean/ACCIDENT.csv', row.names = FALSE)
+```
 
