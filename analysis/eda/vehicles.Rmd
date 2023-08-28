@@ -1,0 +1,60 @@
+---
+title: "vehicles"
+author: "Xuan Hung Ho"
+date: "2023-08-28"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(nnet)
+```
+
+
+```{r load data}
+vehicles = read.csv('../../data/clean/VEHICLE.csv', header = TRUE, 
+                     na.strings = c("", "NA", "Unknown"))
+
+summary(vehicles)
+```
+
+```{r}
+vehicles$ROAD_SURFACE_TYPE <- as.factor(vehicles$ROAD_SURFACE_TYPE)
+
+vehicles$Road.Surface.Type.Desc <- as.factor(vehicles$Road.Surface.Type.Desc)
+
+vehicles$VEHICLE_BODY_STYLE <- as.factor(vehicles$VEHICLE_BODY_STYLE)
+
+vehicles$VEHICLE_MAKE <- as.factor(vehicles$VEHICLE_MAKE)
+vehicles$VEHICLE_MODEL <- as.factor(vehicles$VEHICLE_MODEL)
+
+vehicles$VEHICLE_TYPE <- as.factor(vehicles$VEHICLE_TYPE)
+vehicles$Vehicle.Type.Desc <- as.factor(vehicles$Vehicle.Type.Desc)
+
+vehicles$FUEL_TYPE <- as.factor(vehicles$FUEL_TYPE)
+
+
+vehicles$LEVEL_OF_DAMAGE <- factor(vehicles$LEVEL_OF_DAMAGE, ordered = TRUE, 
+                                levels = c(1, 2, 3, 4, 5, 6, 7, 9))
+
+vehicles$TRAFFIC_CONTROL <- as.factor(vehicles$TRAFFIC_CONTROL)
+vehicles$Traffic.Control.Desc <- as.factor(vehicles$Traffic.Control.Desc)
+```
+
+## 1. Univariate analysis
+
+```{r}
+vehicles_filtered <- vehicles %>%
+  filter(!is.na(VEHICLE_YEAR_MANUF))
+
+ggplot(vehicles_filtered, aes(VEHICLE_YEAR_MANUF)) + 
+  geom_density(alpha=0.25) +
+  xlim(1960, 2023)
+```
+
+
+

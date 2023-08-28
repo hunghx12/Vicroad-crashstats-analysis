@@ -1,0 +1,54 @@
+---
+title: "atmospheric condition"
+author: "Xuan Hung Ho"
+date: "2023-08-28"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(nnet)
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(nnet)
+```
+
+
+```{r load data}
+atmospheric_conds = read.csv('../../data/clean/ATMOSPHERIC_COND.csv', 
+                             header = TRUE, 
+                             na.strings = c("", "NA", "Unknown"))
+
+summary(atmospheric_conds)
+```
+
+```{r}
+atmospheric_conds$ATMOSPH_COND <- as.factor(atmospheric_conds$ATMOSPH_COND)
+
+atmospheric_conds$Atmosph.Cond.Desc <- 
+  as.factor(atmospheric_conds$Atmosph.Cond.Desc)
+
+atmospheric_conds <- atmospheric_conds %>%
+  filter(!is.na(Atmosph.Cond.Desc))
+```
+
+## 1. Univariate analysis
+
+```{r}
+ggplot(atmospheric_conds, aes(Atmosph.Cond.Desc)) + 
+  geom_bar(width = 0.5) +
+  theme_minimal() +
+  labs(title="Distribution by Atmospheric Condition", x = NULL, y = NULL)
+```
+Surprisingly, most of the accidents happened in clear atmospheric condition.

@@ -1,0 +1,44 @@
+---
+title: "road-surface-condition"
+author: "Xuan Hung Ho"
+date: "2023-08-29"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+```
+
+
+```{r load data}
+road_surface_conds = read.csv('../../data/clean/ROAD_SURFACE_COND.csv', 
+                              header = TRUE, 
+                              na.strings = c("", "NA", "Unknown"))
+
+summary(road_surface_conds)
+```
+
+```{r}
+road_surface_conds$SURFACE_COND <- as.factor(road_surface_conds$SURFACE_COND)
+
+road_surface_conds$Surface.Cond.Desc <- 
+  as.factor(road_surface_conds$Surface.Cond.Desc)
+
+road_surface_conds <- road_surface_conds %>%
+  filter(!is.na(Surface.Cond.Desc))
+```
+
+## 1. Univariate analysis
+
+```{r}
+ggplot(road_surface_conds, aes(Surface.Cond.Desc)) + 
+  geom_bar(width = 0.5) +
+  theme_minimal() +
+  labs(title="Distribution by Surface Condition", x = NULL, y = NULL)
+```
+
+Since there might be a chance that more accidents are recorded with surface condition, we cannot conclude that dry surface causes more accident. We will study deeper the correlation between road surface condition and level of injurious later.
+
