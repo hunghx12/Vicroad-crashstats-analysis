@@ -18,7 +18,8 @@ library(nnet)
 
 
 ```{r load data}
-accidents = read.csv('../../data/clean/ACCIDENT.csv', header = TRUE)
+accidents = read.csv('../../data/clean/ACCIDENT.csv', header = TRUE, 
+                     na.strings = c("", "NA", "Unknown"))
 
 # locations = read.csv('../data/clean/ACCIDENT_LOCATION.csv')
 # 
