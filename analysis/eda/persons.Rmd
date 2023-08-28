@@ -8,18 +8,18 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-#install.packages(c("dplyr", "ggplot2")
 library(dplyr)
 library(tidyr)
 library(tidyr)
 library(ggplot2)
-library(nnet)
+library(MASS)
 ```
 
 
 ```{r load data}
 persons = read.csv('../../data/clean/PERSON.csv', 
-                   header = TRUE)
+                   header = TRUE,
+                   na.strings = c("", "NA", "Unknown"))
 ```
 
 ## 1. Persons analysis
@@ -33,18 +33,22 @@ summary(persons)
 ```{r}
 persons$SEX <- as.factor(persons$SEX)
 
-persons$Age.Group <- as.factor(persons$Age.Group)
+persons$Age.Group <- factor(persons$Age.Group, ordered = TRUE,
+                            levels = c("0-4", "5-12", "13-15", "16-17", "18-21", 
+                                       "22-25", "26-29", "30-39", "40-49", 
+                                       "50-59", "60-64", "65-69", "70+"))
 
-persons$INJ_LEVEL <- factor(persons$INJ_LEVEL, ordered = TRUE, 
+persons$INJ_LEVEL <- factor(persons$INJ_LEVEL, ordered = TRUE,
                                 levels = c(9, 4, 3, 2, 1))
 
 persons$Inj.Level.Desc <- factor(persons$Inj.Level.Desc, ordered = TRUE, 
-                                levels = c('Unknown', 'Not injured', 
+                                levels = c('Not injured', 
                                            'Other injury', 'Serious injury', 
                                            'Fatality'
                                            ))
 
 persons$SEATING_POSITION <- as.factor(persons$SEATING_POSITION)
+persons$SEATING_POSITION <- relevel(persons$SEATING_POSITION, ref = "D")
 
 persons$ROAD_USER_TYPE <- as.factor(persons$ROAD_USER_TYPE)
 
@@ -52,20 +56,30 @@ persons$Road.User.Type.Desc <- as.factor(persons$Road.User.Type.Desc)
 ```
 
 ```{r}
-ggplot(persons %>% filter(!is.na(AGE)), aes(AGE)) + 
+ggplot(persons, aes(SEX)) + 
+  geom_bar(width = 0.5) +
+  theme_minimal() +
+  theme(axis.text.x = element_text()) +
+  labs(title="Distribution by Age group", x = NULL, y = NULL)
+```
+
+More men are involved in accidents comparing to women.
+
+```{r}
+persons_filtered <- persons %>% filter(!is.na(AGE))
+ggplot(persons_filtered, aes(AGE)) + 
   geom_bar(width = 0.5) +
   theme_minimal() +
   theme(axis.text.x = element_text()) +
   scale_x_continuous(breaks=seq(0,109,5)) +
   labs(title="Distribution by Age", x = NULL, y = NULL)
 ```
-
 As it can be seen from the chart, people at the age of 18 are most likely to be involved in accidents. 
 
 However, if we take a look at the problem from the age group point of view, the distribution looks differently:
 
 ```{r}
-ggplot(persons, aes(Age.Group)) + 
+ggplot(persons_filtered, aes(Age.Group)) + 
   geom_bar(width = 0.5) +
   theme_minimal() +
   theme(axis.text.x = element_text()) +
@@ -77,11 +91,11 @@ We will take a deeper look this problem later, when we try to determine their ro
 ```{r}
 summary(persons %>%
           filter(!is.na(HELMET_BELT_WORN)) %>% 
-          select(HELMET_BELT_WORN)
+          dplyr::select(HELMET_BELT_WORN)
   )
 ```
 
-The variable 'HELMET_BELT_WORN' is supposed to be a boolean variable indicating whether the person invovled in the accidents was wearing seat belt/ helmet or not, but in the data set it is unjustifiable. Hence, we cannot use it to analyse/ build prediction model.
+The variable 'HELMET_BELT_WORN' is supposed to be a boolean variable or factor indicating whether the person invovled in the accidents was wearing seat belt/ helmet or not, but in the data set it is unjustifiable. Hence, we cannot use it to analyse/ build prediction model.
 
 ```{r}
 ggplot(persons, aes(Road.User.Type.Desc)) + 
@@ -90,6 +104,7 @@ ggplot(persons, aes(Road.User.Type.Desc)) +
   theme(axis.text.x = element_text()) +
   labs(title="Distribution by User type", x = NULL, y = NULL)
 ```
+
 ```{r}
 ggplot(persons, aes(SEATING_POSITION)) + 
   geom_bar(width = 0.5) +
@@ -98,4 +113,87 @@ ggplot(persons, aes(SEATING_POSITION)) +
   labs(title="Distribution by Seating position", x = NULL, y = NULL)
 ```
 
-We cannot give a concrete conclusion from this graph, since there are chances that most of the drivers in the accidents might travel alone.
+We cannot give a concrete conclusion from this graph since there are chances that most of drivers in the accidents might travel alone. We will dive deeper into this problem later.
+
+### 1.2. Bivariate analysis
+
+We want to display the age of people against the injured severity.
+
+```{r}
+ggplot(persons_filtered, aes(x = AGE, y = Inj.Level.Desc, fill = SEX)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title="Boxplot of Age group by Injuried level", 
+       x="Age", y="Injuried level")
+```
+
+We will try to test the correlation between person's seating position and injurious level:
+
+```{r}
+persons_filtered <- persons %>% 
+    filter(Inj.Level.Desc != "Unknown" & SEATING_POSITION != "PS" & 
+             !is.na(SEATING_POSITION))
+
+persons_filtered$Inj.Level.Desc <- factor(persons_filtered$Inj.Level.Desc)
+persons_filtered$SEATING_POSITION <- factor(persons_filtered$SEATING_POSITION)
+
+(chisq.test(
+  table(persons_filtered$SEATING_POSITION, persons_filtered$Inj.Level.Desc),
+  simulate.p.value = TRUE
+))
+```
+We can see that there is huge gap between numbers of injuries persons among different seating positions, so the test result might not be correct. But from this result, it is evident that there is a correlation between seating positions and the level of injurious.
+
+To consider all cases where only cars are involved, we first filter the data set, find all vehicles that have more than 2 people.
+
+```{r}
+persons_filtered_accident_no <- persons_filtered %>%
+  filter(Road.User.Type.Desc %in% c("Drivers", 
+                                    "Passengers")) %>%
+  group_by(ACCIDENT_NO, VEHICLE_ID) %>%
+  count() %>%
+  filter(n >= 2)
+
+persons_filtered <- persons_filtered %>%
+  filter(ACCIDENT_NO %in% persons_filtered_accident_no$ACCIDENT_NO)
+
+```
+
+
+```{r}
+(chisq.test(
+  table(persons_filtered$SEATING_POSITION, persons_filtered$Inj.Level.Desc),
+  simulate.p.value = TRUE
+))
+```
+With p-value < 0.05, we can say that with 95% confidence level, the person's seating in cars is strongly related to the level of injurious.
+
+We will try to fit a model to see if there is connection between seating positions, age group and injurious level.
+
+```{r}
+persons_filtered <- persons_filtered %>%
+  filter(!is.na(Age.Group))
+
+add_model = polr(Inj.Level.Desc ~ SEATING_POSITION + Age.Group,
+                 data = persons_filtered, Hess = TRUE)
+
+summary(add_model)
+```
+
+
+```{r}
+ctable <- coef(summary(add_model))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+
+(ctable <- cbind(ctable, "p value" = p))
+```
+From the p-values, we can say that all the variables in the model are significant.
+
+```{r}
+exp(coef(add_model))
+```
+
+We can interpret the table above as follows:
+
+- For individuals within the same age group, if they are seated in the 'Passenger Left' position, the odds of being injured are 4.9 times higher than for drivers, while the odds of sustaining injuries in other seating positions in the car are relatively the same. \
+- For people seated in the same position in a car, the odds of sustaining injuries for those in the age groups 5-12 and 16-17 are 2.46 and 1.77 times higher, respectively, compared to people in the age group 0-4. For other age groups, the odds are nearly the same. \
