@@ -9,8 +9,6 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(dplyr)
-library(tidyr)
-library(tidyr)
 library(ggplot2)
 library(MASS)
 ```
@@ -20,15 +18,9 @@ library(MASS)
 persons = read.csv('../../data/clean/PERSON.csv', 
                    header = TRUE,
                    na.strings = c("", "NA", "Unknown"))
-```
 
-## 1. Persons analysis
-
-### 1.1. Univariate analysis
-```{r}
 summary(persons)
 ```
-
 
 ```{r}
 persons$SEX <- as.factor(persons$SEX)
@@ -54,6 +46,8 @@ persons$ROAD_USER_TYPE <- as.factor(persons$ROAD_USER_TYPE)
 
 persons$Road.User.Type.Desc <- as.factor(persons$Road.User.Type.Desc)
 ```
+
+## 1. Univariate analysis
 
 ```{r}
 ggplot(persons, aes(SEX)) + 
@@ -115,7 +109,7 @@ ggplot(persons, aes(SEATING_POSITION)) +
 
 We cannot give a concrete conclusion from this graph since there are chances that most of drivers in the accidents might travel alone. We will dive deeper into this problem later.
 
-### 1.2. Bivariate analysis
+## 2. Bivariate analysis
 
 We want to display the age of people against the injured severity.
 
@@ -168,7 +162,9 @@ persons_filtered <- persons_filtered %>%
 ```
 With p-value < 0.05, we can say that with 95% confidence level, the person's seating in cars is strongly related to the level of injurious.
 
-We will try to fit a model to see if there is connection between seating positions, age group and injurious level.
+## 3. Model fitting
+
+We will try to fit a ordinal regression model to see if there is a connection between seating positions, age group against injurious level.
 
 ```{r}
 persons_filtered <- persons_filtered %>%
@@ -179,7 +175,6 @@ add_model = polr(Inj.Level.Desc ~ SEATING_POSITION + Age.Group,
 
 summary(add_model)
 ```
-
 
 ```{r}
 ctable <- coef(summary(add_model))

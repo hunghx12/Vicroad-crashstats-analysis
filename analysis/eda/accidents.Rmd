@@ -11,7 +11,6 @@ knitr::opts_chunk$set(echo = TRUE)
 #install.packages(c("dplyr", "ggplot2")
 library(dplyr)
 library(tidyr)
-library(tidyr)
 library(ggplot2)
 library(nnet)
 ```
@@ -21,23 +20,6 @@ library(nnet)
 accidents = read.csv('../../data/clean/ACCIDENT.csv', header = TRUE, 
                      na.strings = c("", "NA", "Unknown"))
 
-# locations = read.csv('../data/clean/ACCIDENT_LOCATION.csv')
-# 
-# atmospheric_conds = read.csv('../data/clean/ATMOSPHERIC_COND.csv')
-# 
-# nodes = read.csv('../data/clean/NODE.csv')
-# 
-# persons = read.csv('../data/clean/PERSON.csv')
-# 
-# road_surface_conds = read.csv('../data/clean/ROAD_SURFACE_COND.csv')
-# 
-# vehicles = read.csv('../data/clean/VEHICLE.csv')
-```
-
-## 1. Accidents analysis
-
-### 1.1. Univariate analysis
-```{r}
 summary(accidents)
 ```
 
@@ -67,6 +49,7 @@ accidents$SEVERITY <- factor(accidents$SEVERITY, ordered = TRUE,
 accidents$SPEED_ZONE <- as.factor(accidents$SPEED_ZONE)
 ```
 
+## 1. Univariate analysis
 
 ```{r}
 ggplot(accidents, aes(Day.Week.Description)) + 
@@ -139,7 +122,7 @@ ggplot(accidents, aes(SEVERITY)) +
   labs(title="Distribution of Severity", x = NULL, y = NULL)
 ```
 
-### 1.2. Bivariate analysis
+## 2. Bivariate analysis
 
 We want to display the percentage of cases within each speed zone against the severity of crashes.
 
@@ -160,6 +143,9 @@ ggplot(aggregated_data, aes(x = SPEED_ZONE, y = SEVERITY, fill = Percentage)) +
 
 From the heap map, we can say that in speed zone of 30 to 60km/h, there is higher chance that accidents is more severe.
 
+## 3. Model fitting
+
+Now we will try to fit multinom model, with "Light condition", "Speed zone" and "Road geometry" as predictors, and "Severity" as response variable. Since the response are multi-level factor, fitting multinom models are justifiable.
 
 ```{r}
 add_model = multinom(SEVERITY ~ Light.Condition.Desc + SPEED_ZONE +
