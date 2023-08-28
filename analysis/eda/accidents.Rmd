@@ -173,6 +173,11 @@ anova(add_model, interactive_model, test = "Chi")
 Since p-value equals 1, we have no evidence against the null hypothesis, which is the addictive model, i.e., we do not need interaction terms for the model.
 
 ```{r}
+print(tidy(add_model, conf.int= TRUE, conf.level = 0.95, exponentiate = T), n = 100)
+```
+Since all p-values are relatively small (smaller than 0.05), we can say that all the variables in the model are significant.
+
+```{r}
 write.csv(accidents, '../../data/clean/ACCIDENT.csv', row.names = FALSE)
 ```
 
