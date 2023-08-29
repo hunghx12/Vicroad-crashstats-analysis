@@ -37,12 +37,13 @@ vehicles$Vehicle.Type.Desc <- as.factor(vehicles$Vehicle.Type.Desc)
 
 vehicles$FUEL_TYPE <- as.factor(vehicles$FUEL_TYPE)
 
-
 vehicles$LEVEL_OF_DAMAGE <- factor(vehicles$LEVEL_OF_DAMAGE, ordered = TRUE, 
                                 levels = c(1, 2, 3, 4, 5, 6, 7, 9))
 
 vehicles$TRAFFIC_CONTROL <- as.factor(vehicles$TRAFFIC_CONTROL)
 vehicles$Traffic.Control.Desc <- as.factor(vehicles$Traffic.Control.Desc)
+
+vehicles$CAUGHT_FIRE <- as.factor(vehicles$CAUGHT_FIRE)
 ```
 
 ## 1. Univariate analysis
@@ -56,5 +57,52 @@ ggplot(vehicles_filtered, aes(VEHICLE_YEAR_MANUF)) +
   xlim(1960, 2023)
 ```
 
+```{r}
+ggplot(vehicles, aes(Road.Surface.Type.Desc)) + 
+  geom_bar() +
+  theme_minimal() +
+  labs(title="Distribution of Road surface type", x = NULL, y = NULL)
+```
 
+```{r}
+ggplot(vehicles %>% filter(!is.na(Vehicle.Type.Desc)), aes(Vehicle.Type.Desc)) + 
+  geom_bar() +
+  theme_minimal() +
+  labs(title="Distribution of Vehicle type", x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+Most of vehicles involved in accidents are cars.
 
+```{r}
+ggplot(vehicles %>% filter(!is.na(FUEL_TYPE)), aes(FUEL_TYPE)) + 
+  geom_bar() +
+  theme_minimal() +
+  labs(title="Distribution of Fuel type", x = NULL, y = NULL)
+```
+
+Most of the vehicles involved in accidents were running on Petrol fuel
+
+## 2. Bivariate analysis
+
+We want to display the fuel type against whether the vehicles caught fire.
+
+```{r}
+vehicles_filtered <- vehicles %>% 
+  filter(!is.na(FUEL_TYPE) & !is.na(CAUGHT_FIRE))
+
+aggregated_data <- vehicles_filtered %>%
+  group_by(FUEL_TYPE, CAUGHT_FIRE) %>%
+  tally()
+
+ggplot(aggregated_data, aes(x = FUEL_TYPE, y = CAUGHT_FIRE, fill = n)) +
+  geom_tile() + 
+  scale_fill_gradient(low="white", high="red", name="Count") + 
+  labs(title="Heat map of Fuel type vs. Caught Fire", 
+       x="Fuel type", y="Caught Fire") + 
+  theme_minimal()
+```
+
+```{r}
+table(vehicles$CAUGHT_FIRE)
+```
+Since we only record 1187 cases of catching fire, we might not be able to use it to analysis whether there are correlation between fuel type and whether a vehicle catching fire or not.
