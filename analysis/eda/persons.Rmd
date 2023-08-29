@@ -45,6 +45,8 @@ persons$SEATING_POSITION <- relevel(persons$SEATING_POSITION, ref = "D")
 persons$ROAD_USER_TYPE <- as.factor(persons$ROAD_USER_TYPE)
 
 persons$Road.User.Type.Desc <- as.factor(persons$Road.User.Type.Desc)
+
+persons$HELMET_BELT_WORN <- as.factor(persons$HELMET_BELT_WORN)
 ```
 
 ## 1. Univariate analysis
@@ -83,13 +85,22 @@ ggplot(persons_filtered, aes(Age.Group)) +
 We will take a deeper look this problem later, when we try to determine their roles in the accident, for example, drivers or passengers.
 
 ```{r}
-summary(persons %>%
-          filter(!is.na(HELMET_BELT_WORN)) %>% 
-          dplyr::select(HELMET_BELT_WORN)
-  )
+ggplot(persons %>% filter(!is.na(HELMET_BELT_WORN) & HELMET_BELT_WORN != 9), 
+       aes(HELMET_BELT_WORN)) + 
+  geom_bar(width = 0.5) +
+  theme_minimal() +
+  theme(axis.text.x = element_text()) +
+  labs(title="Distribution by Helmet/Seat belt worn", x = NULL, y = NULL)
+```
+```{r}
+persons <- persons %>%
+  mutate(HELMET_BELT_WORN_PROPERLY = case_when(
+    HELMET_BELT_WORN %in% c(1, 3, 6) ~ TRUE,
+    HELMET_BELT_WORN == 9 ~ NA,
+    .default = FALSE
+  ))
 ```
 
-The variable 'HELMET_BELT_WORN' is supposed to be a boolean variable or factor indicating whether the person invovled in the accidents was wearing seat belt/ helmet or not, but in the data set it is unjustifiable. Hence, we cannot use it to analyse/ build prediction model.
 
 ```{r}
 ggplot(persons, aes(Road.User.Type.Desc)) + 
@@ -100,6 +111,8 @@ ggplot(persons, aes(Road.User.Type.Desc)) +
 ```
 
 ```{r}
+# Code Description CF Centre-front CR Centre-rear D Driver or rider LF Left-front LR Left-rear NA Not applicable NK Not known OR Other-rear PL Pillion passenger PS Motorcycle sidecar passenger RR Right-rear
+
 ggplot(persons, aes(SEATING_POSITION)) + 
   geom_bar(width = 0.5) +
   theme_minimal() +
@@ -142,7 +155,7 @@ To consider all cases where only cars are involved, we first filter the data set
 
 ```{r}
 persons_filtered_accident_no <- persons_filtered %>%
-  filter(Road.User.Type.Desc %in% c("Drivers", 
+  filter(Road.User.Type.Desc %in% c("Drivers",
                                     "Passengers")) %>%
   group_by(ACCIDENT_NO, VEHICLE_ID) %>%
   count() %>%
@@ -168,9 +181,10 @@ We will try to fit a ordinal regression model to see if there is a connection be
 
 ```{r}
 persons_filtered <- persons_filtered %>%
-  filter(!is.na(Age.Group))
+  filter(!is.na(Age.Group) & !is.na(HELMET_BELT_WORN_PROPERLY))
 
-add_model = polr(Inj.Level.Desc ~ SEATING_POSITION + Age.Group,
+add_model = polr(Inj.Level.Desc ~ SEATING_POSITION + Age.Group + 
+                   HELMET_BELT_WORN_PROPERLY,
                  data = persons_filtered, Hess = TRUE)
 
 summary(add_model)
@@ -190,5 +204,6 @@ exp(coef(add_model))
 
 We can interpret the table above as follows:
 
-- For individuals within the same age group, if they are seated in the 'Passenger Left' position, the odds of being injured are 4.9 times higher than for drivers, while the odds of sustaining injuries in other seating positions in the car are relatively the same. \
-- For people seated in the same position in a car, the odds of sustaining injuries for those in the age groups 5-12 and 16-17 are 2.46 and 1.77 times higher, respectively, compared to people in the age group 0-4. For other age groups, the odds are nearly the same. \
+- For individuals within the same age group and seat belt/helmet status, if they are seated in the 'Passenger Left' position, the odds of moving from lower level of injurious to higher level (for example, having have non injury accident compared to other injuries, or from being seriously injured to fatal accident) in other seating positions in the car are relatively the same. \
+- For people seated in the same position in a car and have same seat belt/helmet status, the odds of sustaining injuries for those in the age groups 5-12 and 16-17 are 2.46 and 1.77 times higher, respectively, compared to people in the age group 0-4. For other age groups, the odds are nearly the same. \
+- For people who worn seat belt/ helmet properly, the odds of being injured are 46% lower than those who did not wear seat belt/ helmet properly.
