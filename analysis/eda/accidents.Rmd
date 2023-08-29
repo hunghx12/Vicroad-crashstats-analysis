@@ -12,7 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-library(nnet)
+library(MASS)
+library(broom)
 ```
 
 
@@ -26,25 +27,27 @@ summary(accidents)
 ```{r}
 accidents$ACCIDENT_TYPE <- as.factor(accidents$ACCIDENT_TYPE)
 
-accidents$DAY_OF_WEEK <- as.factor(accidents$DAY_OF_WEEK)
 accidents$Day.Week.Description <- as.factor(accidents$Day.Week.Description)
 
-accidents$ACCIDENT_TYPE <- as.factor(accidents$ACCIDENT_TYPE)
 accidents$Accident.Type.Desc <- as.factor(accidents$Accident.Type.Desc)
 
-accidents$DCA_CODE <- as.factor(accidents$DCA_CODE)
 accidents$DCA.Description <- as.factor(accidents$DCA.Description)
 
 accidents$NODE_ID <- as.factor(accidents$NODE_ID)
 
-accidents$LIGHT_CONDITION <- as.factor(accidents$LIGHT_CONDITION)
 accidents$Light.Condition.Desc <- as.factor(accidents$Light.Condition.Desc)
+accidents$Light.Condition.Desc <- relevel(accidents$Light.Condition.Desc,
+                                          ref = 'Day')
 
-accidents$ROAD_GEOMETRY <- as.factor(accidents$ROAD_GEOMETRY)
 accidents$Road.Geometry.Desc <- as.factor(accidents$Road.Geometry.Desc)
+accidents$Road.Geometry.Desc <- relevel(accidents$Road.Geometry.Desc, 
+                                        ref = 'Cross intersection')
 
 accidents$SEVERITY <- factor(accidents$SEVERITY, ordered = TRUE, 
-                                levels = c(1, 2, 3, 4))
+                             levels = c("Non injury accident", 
+                                        "Other injury accident", 
+                                        "Serious injury accident", 
+                                        "Fatal accident"))
 
 accidents$SPEED_ZONE <- as.factor(accidents$SPEED_ZONE)
 ```
@@ -71,9 +74,10 @@ From this graph we can see there are couples of outliers. We will remove them be
 
 ```{r}
 accidents = accidents[as.numeric(as.character(accidents$SPEED_ZONE)) < 200, ]
-accidents$SPEED_ZONE <- factor(accidents$SPEED_ZONE, ordered = TRUE, 
-                                levels = c(30, 40, 50, 60, 70, 
-                                           75, 80, 90, 100, 110))
+
+accidents$SPEED_ZONE <- relevel(accidents$SPEED_ZONE, 
+                                        ref = "60")
+write.csv(accidents, '../../data/clean/ACCIDENT.csv', row.names = FALSE)
 
 ggplot(accidents, aes(SPEED_ZONE)) + 
   geom_bar() +
@@ -145,25 +149,44 @@ From the heap map, we can say that in speed zone of 30 to 60km/h, there is highe
 
 ## 3. Model fitting
 
-Now we will try to fit multinom model, with "Light condition", "Speed zone" and "Road geometry" as predictors, and "Severity" as response variable. Since the response are multi-level factor, fitting multinom models are justifiable.
+Now we will try to fit ordinal logistic regression model, with "Light condition", "Speed zone" and "Road geometry" as predictors, and "Severity" as response variable. Since the response is multi-level ordinal factors, fitting ordinal logistic regression models are justifiable.
 
 ```{r}
-add_model = multinom(SEVERITY ~ Light.Condition.Desc + SPEED_ZONE +
-                  Road.Geometry.Desc, data = accidents)
+accidents <- accidents %>%
+  filter(!is.na(Light.Condition.Desc) & !is.na(Road.Geometry.Desc))
 
-interactive_model = multinom(SEVERITY ~ (Light.Condition.Desc + SPEED_ZONE +
-                          Road.Geometry.Desc)^2, data = accidents)
+model_data <- accidents %>%
+  dplyr::select(SEVERITY, Light.Condition.Desc, SPEED_ZONE, Road.Geometry.Desc) %>%
+  distinct()
+
+add_model = polr(SEVERITY ~ Light.Condition.Desc + SPEED_ZONE + 
+                   Road.Geometry.Desc,
+                 data = model_data, Hess = TRUE)
+
+interactive_model = polr(SEVERITY ~ (Light.Condition.Desc + SPEED_ZONE + 
+                   Road.Geometry.Desc)^2,
+                 data = model_data, Hess = TRUE)
 
 anova(add_model, interactive_model, test = "Chi")
 ```
+
 Since p-value equals 1, we have no evidence against the null hypothesis, which is the addictive model, i.e., we do not need interaction terms for the model.
 
-```{r}
-print(tidy(add_model, conf.int= TRUE, conf.level = 0.95, exponentiate = T), n = 100)
-```
-Since all p-values are relatively small (smaller than 0.05), we can say that all the variables in the model are significant.
 
 ```{r}
-write.csv(accidents, '../../data/clean/ACCIDENT.csv', row.names = FALSE)
+ctable <- coef(summary(add_model))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+
+(ctable <- cbind(ctable, "p value" = p))
+```
+From the p-values, we can say that all the variables in the model are significant.
+
+```{r}
+exp(coef(add_model))
 ```
 
+We can interpret the table above as follows:
+
+- For those who drove in the same speed zone and at the position with the same road layout, if they were driving in Dusk/ Dawn condition, the odds of moving from lower level of injurious to higher level (for example, having have non injury accident compared to other injuries, or from being seriously injured to fatal accident) are 10% lower than for driving during the day. This might be because of data biased, since most of the cases happened during the day, and we do not have enough data to justify this.
+- For individuals who drove in the same light condition and at the position with the same road layout, the odds of moving from lower level of injurious to higher level are 1.12 times higher for driving in 100km/h zone compared to those driving in 60km/h zone. For other zone, the odds are lower, except for 80km/h zone, at which the odds are nearly equal.
+- Comparing to those faced accidents at Cross intersection, people driving in area with same speed zone and light condition had the odds of being injured 28 times (1/0.0351) lower if they had accident while driving at a private property.
