@@ -143,7 +143,7 @@ ggplot(aggregated_data, aes(x = SPEED_ZONE, y = SEVERITY, fill = Percentage)) +
   theme_minimal()
 ```
 
-From the heap map, we can say that in speed zone of 30 to 60km/h, there is higher chance that accidents is more severe.
+From the heap map, we can say that in speed zone of 30 to 60km/h, there are more severe accidents than other zones.
 
 ## 3. Model fitting
 

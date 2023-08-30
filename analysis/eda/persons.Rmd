@@ -56,6 +56,7 @@ ggplot(persons, aes(SEX)) +
   geom_bar(width = 0.5) +
   theme_minimal() +
   theme(axis.text.x = element_text()) +
+  geom_text(stat='count', aes(label=..count..), vjust=-0.5) +
   labs(title="Distribution by Gender", x = NULL, y = NULL)
 ```
 

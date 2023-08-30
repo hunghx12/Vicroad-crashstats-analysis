@@ -65,7 +65,7 @@ vehicles_filtered <- vehicles %>%
   filter(!is.na(VEHICLE_YEAR_MANUF))
 
 ggplot(vehicles_filtered, aes(VEHICLE_YEAR_MANUF)) + 
-  geom_histogram(binwidth = 1) +
+  geom_bar(width = 0.5) +
   scale_x_continuous(breaks=seq(1960, 2023, 5), lim = c(1960, 2023)) + 
   theme_minimal()
 ```
