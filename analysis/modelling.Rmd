@@ -1,0 +1,175 @@
+---
+title: "modelling"
+author: "Xuan Hung Ho"
+date: "2023-08-29"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+library(MASS)
+```
+
+
+```{r load data}
+na.strings <- c("", "NA", "Unknown")
+
+accidents = read.csv('../data/clean/ACCIDENT.csv', header = TRUE, 
+                     na.strings = na.strings)
+
+atmospheric_conds = read.csv('../data/clean/ATMOSPHERIC_COND.csv', 
+                             header = TRUE, 
+                             na.strings = na.strings)
+
+persons = read.csv('../data/clean/PERSON.csv', 
+                   header = TRUE,
+                   na.strings = na.strings)
+
+road_surface_conds = read.csv('../data/clean/ROAD_SURFACE_COND.csv', 
+                              header = TRUE, 
+                              na.strings = na.strings)
+
+vehicles = read.csv('../data/clean/VEHICLE.csv', header = TRUE, 
+                     na.strings = na.strings)
+```
+
+```{r}
+df <- accidents %>% 
+  inner_join(persons, by="ACCIDENT_NO") %>%
+  inner_join(atmospheric_conds, by = "ACCIDENT_NO") %>%
+  inner_join(road_surface_conds, by="ACCIDENT_NO") %>%
+  inner_join(vehicles, by = c('ACCIDENT_NO', 'VEHICLE_ID'))
+
+
+```
+
+```{r}
+# Accidents
+df$ACCIDENT_TYPE <- as.factor(df$ACCIDENT_TYPE)
+
+df$Accident.Type.Desc <- as.factor(df$Accident.Type.Desc)
+
+df$Light.Condition.Desc <- as.factor(df$Light.Condition.Desc)
+df$Light.Condition.Desc <- relevel(df$Light.Condition.Desc,
+                                          ref = 'Day')
+
+df$Road.Geometry.Desc <- as.factor(df$Road.Geometry.Desc)
+df$Road.Geometry.Desc <- relevel(df$Road.Geometry.Desc, 
+                                        ref = 'Cross intersection')
+
+df$SEVERITY <- factor(df$SEVERITY, ordered = TRUE, 
+                             levels = c("Non injury accident", 
+                                        "Other injury accident", 
+                                        "Serious injury accident", 
+                                        "Fatal accident"))
+
+df$SPEED_ZONE <- as.factor(df$SPEED_ZONE)
+df$SPEED_ZONE <- relevel(df$SPEED_ZONE, ref = "60")
+
+# Atmospheric conditions
+df$Atmosph.Cond.Desc <- as.factor(df$Atmosph.Cond.Desc)
+
+# Persons
+df$SEX <- as.factor(df$SEX)
+
+df$Age.Group <- factor(df$Age.Group, ordered = TRUE,
+                            levels = c("0-4", "5-12", "13-15", "16-17", "18-21", 
+                                       "22-25", "26-29", "30-39", "40-49", 
+                                       "50-59", "60-64", "65-69", "70+"))
+
+df$Inj.Level.Desc <- factor(df$Inj.Level.Desc, ordered = TRUE, 
+                                levels = c('Not injured', 
+                                           'Other injury', 'Serious injury', 
+                                           'Fatality'
+                                           ))
+
+df$SEATING_POSITION <- as.factor(df$SEATING_POSITION)
+df$SEATING_POSITION <- relevel(df$SEATING_POSITION, ref = "D")
+
+df$ROAD_USER_TYPE <- as.factor(df$ROAD_USER_TYPE)
+
+df$Road.User.Type.Desc <- as.factor(df$Road.User.Type.Desc)
+
+df$HELMET_BELT_WORN_PROPERLY <-
+  as.factor(df$HELMET_BELT_WORN_PROPERLY)
+
+# Road surface condition
+df$Surface.Cond.Desc <- 
+  as.factor(df$Surface.Cond.Desc)
+
+# Vehicles
+df$Road.Surface.Type.Desc <- as.factor(df$Road.Surface.Type.Desc)
+
+df$VEHICLE_BODY_STYLE <- as.factor(df$VEHICLE_BODY_STYLE)
+
+df$Vehicle.Type.Desc <- as.factor(df$Vehicle.Type.Desc)
+```
+## 1. Factor analysis
+
+In this section we will try to answer the question: Which factors are likely to be connected to severe accidents?
+
+```{r}
+df <- df %>%
+  filter(!is.na(SEVERITY)) %>%
+  filter(!is.na(Light.Condition.Desc)) %>%
+  filter(!is.na(Atmosph.Cond.Desc)) %>%
+  filter(!is.na(Surface.Cond.Desc)) %>%
+  filter(!is.na(Road.Surface.Type.Desc)) %>%
+  filter(!is.na(SPEED_ZONE)) %>%
+  filter(!is.na(Road.Geometry.Desc)) %>%
+  filter(!is.na(SEX)) %>%
+  filter(!is.na(VEHICLE_WEIGHT))
+
+model_data <- df %>%
+  dplyr::select(SEVERITY, Light.Condition.Desc, Road.Surface.Type.Desc, 
+                SPEED_ZONE, Road.Geometry.Desc, VEHICLE_WEIGHT, 
+                Surface.Cond.Desc, Atmosph.Cond.Desc, SEX) %>%
+  distinct(SEVERITY, Light.Condition.Desc, Road.Surface.Type.Desc, 
+           SPEED_ZONE, Road.Geometry.Desc, VEHICLE_WEIGHT, 
+           Surface.Cond.Desc, Atmosph.Cond.Desc, SEX,
+           .keep_all = TRUE)
+
+model_data$VEHICLE_WEIGHT <- model_data$VEHICLE_WEIGHT / 1000
+
+model <- polr(SEVERITY ~ Light.Condition.Desc + VEHICLE_WEIGHT + SPEED_ZONE + 
+                SEX + Surface.Cond.Desc + Atmosph.Cond.Desc + 
+                Road.Surface.Type.Desc + Road.Geometry.Desc,
+              data = model_data, Hess = TRUE)
+```
+It seems like one of the variables has caused the design matrix to be not full rank. We will try to remove "Road.Geometry.Desc":
+```{r}
+model <- polr(SEVERITY ~ Light.Condition.Desc + VEHICLE_WEIGHT + SPEED_ZONE + 
+                SEX + Surface.Cond.Desc + Atmosph.Cond.Desc + 
+                Road.Surface.Type.Desc,
+              data = model_data, Hess = TRUE)
+summary(model)
+```
+The design matrix is now full rank. Now we perform _step_ function to obtain the model with the lowest AIC score:
+
+```{r}
+model <- step(model)
+```
+Seems like _Atmosph.Cond.Desc_ does not contribute significantly to the model. We can verify all the other variables are significant by computing p-values, i.e., Wald test.
+
+```{r}
+ctable <- coef(summary(model))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+
+(ctable <- cbind(ctable, "p value" = p))
+```
+```{r}
+exp(coef(model))
+```
+The odds ratios represent the multiplicative change in the odds of being in a higher severity category for a one-unit increase in the predictor variable, holding the other variables constant.
+
+For example, the odds ratio for 'Dark No street lights ' is 1.4744, which means that the odds of a higher severity accident are 1.47 times higher when it is dark with no street lights compared to accidents happened during day.
+
+Similarly, the odds ratio for 'Speed Zone 100' is 1.5883, which means that the odds of a higher severity accident are approximately 1.59 times higher in a 100 speed zone compared to the Speed Zone 60.
+
+The odds ratio for 'Sex Male' is 1.1389634, which means that the odds of a higher severity accident are approximately 1.14 times higher if the driver is a man compared to female drivers.
+
+## 2. Time series analysis
+
