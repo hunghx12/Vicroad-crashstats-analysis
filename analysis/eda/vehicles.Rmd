@@ -16,7 +16,7 @@ library(nnet)
 
 
 ```{r load data}
-vehicles = read.csv('../../data/clean/VEHICLE.csv', header = TRUE, 
+vehicles <- read.csv('../../data/clean/VEHICLE.csv', header = TRUE, 
                      na.strings = c("", "NA", "Unknown"))
 
 summary(vehicles)
@@ -38,7 +38,11 @@ vehicles$Vehicle.Type.Desc <- as.factor(vehicles$Vehicle.Type.Desc)
 vehicles$FUEL_TYPE <- as.factor(vehicles$FUEL_TYPE)
 
 vehicles$LEVEL_OF_DAMAGE <- factor(vehicles$LEVEL_OF_DAMAGE, ordered = TRUE, 
-                                levels = c(1, 2, 3, 4, 5, 6, 7, 9))
+                                levels = c('Minor', 
+                                           'Moderate (driveable vehicle)', 
+                                           'Moderate (unit towed away)', 
+                                           'Major (unit towed away)', 
+                                           'Extensive (unrepairable)'))
 
 vehicles$TRAFFIC_CONTROL <- as.factor(vehicles$TRAFFIC_CONTROL)
 vehicles$Traffic.Control.Desc <- as.factor(vehicles$Traffic.Control.Desc)
@@ -49,12 +53,21 @@ vehicles$CAUGHT_FIRE <- as.factor(vehicles$CAUGHT_FIRE)
 ## 1. Univariate analysis
 
 ```{r}
+ggplot(vehicles , aes(x = VEHICLE_WEIGHT)) + 
+  geom_histogram(binwidth = 100) +
+  scale_x_continuous(breaks=seq(0,30000,2500), lim = c(0, 30000)) + 
+  theme_minimal()
+```
+
+
+```{r}
 vehicles_filtered <- vehicles %>%
   filter(!is.na(VEHICLE_YEAR_MANUF))
 
 ggplot(vehicles_filtered, aes(VEHICLE_YEAR_MANUF)) + 
-  geom_density(alpha=0.25) +
-  xlim(1960, 2023)
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks=seq(1960, 2023, 5), lim = c(1960, 2023)) + 
+  theme_minimal()
 ```
 
 ```{r}

@@ -10,10 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #install.packages(c("dplyr", "ggplot2")
 library(dplyr)
-library(tidyr)
 library(ggplot2)
 library(MASS)
-library(broom)
 ```
 
 
@@ -170,7 +168,7 @@ interactive_model = polr(SEVERITY ~ (Light.Condition.Desc + SPEED_ZONE +
 anova(add_model, interactive_model, test = "Chi")
 ```
 
-Since p-value equals 1, we have no evidence against the null hypothesis, which is the addictive model, i.e., we do not need interaction terms for the model.
+Since p-value equals 1, we have no evidence against the null hypothesis, which is the addictive model, i.e., we do not need interaction terms for the model. Furthermore, the interactive model seems to have not full rank design matrix.
 
 
 ```{r}

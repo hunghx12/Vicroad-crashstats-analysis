@@ -56,7 +56,7 @@ ggplot(persons, aes(SEX)) +
   geom_bar(width = 0.5) +
   theme_minimal() +
   theme(axis.text.x = element_text()) +
-  labs(title="Distribution by Age group", x = NULL, y = NULL)
+  labs(title="Distribution by Gender", x = NULL, y = NULL)
 ```
 
 More men are involved in accidents comparing to women.
@@ -93,12 +93,20 @@ ggplot(persons %>% filter(!is.na(HELMET_BELT_WORN) & HELMET_BELT_WORN != 9),
   labs(title="Distribution by Helmet/Seat belt worn", x = NULL, y = NULL)
 ```
 ```{r}
+# Code Description 1 Seatbelt worn 2 Seatbelt not worn 3 Child restraint worn 4 Child restraint not worn 5 Seatbelt/restraint not fitted 6 Crash helmet worn 7 Crash helmet not worn 8 Not appropriate 9 Not known
+# Source: https://data.vicroads.vic.gov.au/Metadata/Crash%20Stats%20-%20Data%20Extract%20-%20Open%20Data.html
+
 persons <- persons %>%
   mutate(HELMET_BELT_WORN_PROPERLY = case_when(
     HELMET_BELT_WORN %in% c(1, 3, 6) ~ TRUE,
     HELMET_BELT_WORN == 9 ~ NA,
     .default = FALSE
   ))
+
+persons$HELMET_BELT_WORN_PROPERLY <-
+  as.factor(persons$HELMET_BELT_WORN_PROPERLY)
+
+write.csv(persons, '../../data/clean/PERSON.csv', row.names = FALSE)
 ```
 
 
@@ -138,7 +146,7 @@ We will try to test the correlation between person's seating position and injuri
 
 ```{r}
 persons_filtered <- persons %>% 
-    filter(Inj.Level.Desc != "Unknown" & SEATING_POSITION != "PS" & 
+    filter(!is.na(Inj.Level.Desc) & SEATING_POSITION != "PS" & 
              !is.na(SEATING_POSITION))
 
 persons_filtered$Inj.Level.Desc <- factor(persons_filtered$Inj.Level.Desc)
@@ -163,7 +171,6 @@ persons_filtered_accident_no <- persons_filtered %>%
 
 persons_filtered <- persons_filtered %>%
   filter(ACCIDENT_NO %in% persons_filtered_accident_no$ACCIDENT_NO)
-
 ```
 
 
@@ -181,10 +188,11 @@ We will try to fit a ordinal regression model to see if there is a connection be
 
 ```{r}
 persons_filtered <- persons_filtered %>%
-  filter(!is.na(Age.Group) & !is.na(HELMET_BELT_WORN_PROPERLY))
+  filter(!is.na(Age.Group) & !is.na(HELMET_BELT_WORN_PROPERLY)) %>%
+  filter(!is.na(SEX))
 
 add_model = polr(Inj.Level.Desc ~ SEATING_POSITION + Age.Group + 
-                   HELMET_BELT_WORN_PROPERLY,
+                   HELMET_BELT_WORN_PROPERLY + SEX,
                  data = persons_filtered, Hess = TRUE)
 
 summary(add_model)
@@ -206,4 +214,6 @@ We can interpret the table above as follows:
 
 - For individuals within the same age group and seat belt/helmet status, if they are seated in the 'Passenger Left' position, the odds of moving from lower level of injurious to higher level (for example, having have non injury accident compared to other injuries, or from being seriously injured to fatal accident) in other seating positions in the car are relatively the same. \
 - For people seated in the same position in a car and have same seat belt/helmet status, the odds of sustaining injuries for those in the age groups 5-12 and 16-17 are 2.46 and 1.77 times higher, respectively, compared to people in the age group 0-4. For other age groups, the odds are nearly the same. \
-- For people who worn seat belt/ helmet properly, the odds of being injured are 46% lower than those who did not wear seat belt/ helmet properly.
+- For people who worn seat belt/ helmet properly, the odds of being injured are 46% (1-0.537) lower than those who did not wear seat belt/ helmet properly.
+- The odds ratio for 'Sex Male' is 0.6084, which means that the odds of a higher severity accident are approximately 1.64 (1/0.684) times lower if the driver is a man compared to female drivers.
+
