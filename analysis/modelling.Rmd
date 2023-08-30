@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(MASS)
+library(lubridate)
+library(forecast)
 ```
 
 
@@ -75,10 +77,8 @@ df$Atmosph.Cond.Desc <- as.factor(df$Atmosph.Cond.Desc)
 # Persons
 df$SEX <- as.factor(df$SEX)
 
-df$Age.Group <- factor(df$Age.Group, ordered = TRUE,
-                            levels = c("0-4", "5-12", "13-15", "16-17", "18-21", 
-                                       "22-25", "26-29", "30-39", "40-49", 
-                                       "50-59", "60-64", "65-69", "70+"))
+df$Age.Group <- as.factor(df$Age.Group)
+df$Age.Group <- relevel(df$Age.Group, ref = "16-17")
 
 df$Inj.Level.Desc <- factor(df$Inj.Level.Desc, ordered = TRUE, 
                                 levels = c('Not injured', 
@@ -97,8 +97,8 @@ df$HELMET_BELT_WORN_PROPERLY <-
   as.factor(df$HELMET_BELT_WORN_PROPERLY)
 
 # Road surface condition
-df$Surface.Cond.Desc <- 
-  as.factor(df$Surface.Cond.Desc)
+df$Surface.Cond.Desc <- as.factor(df$Surface.Cond.Desc)
+df$Surface.Cond.Desc <- relevel(df$Surface.Cond.Desc, ref = "Dry")
 
 # Vehicles
 df$Road.Surface.Type.Desc <- as.factor(df$Road.Surface.Type.Desc)
@@ -121,30 +121,41 @@ df <- df %>%
   filter(!is.na(SPEED_ZONE)) %>%
   filter(!is.na(Road.Geometry.Desc)) %>%
   filter(!is.na(SEX)) %>%
-  filter(!is.na(VEHICLE_WEIGHT))
+  filter(!is.na(Age.Group)) %>%
+  filter(!is.na(VEHICLE_WEIGHT)) %>%
+  filter(!is.na(HELMET_BELT_WORN_PROPERLY))
 
 model_data <- df %>%
   dplyr::select(SEVERITY, Light.Condition.Desc, Road.Surface.Type.Desc, 
-                SPEED_ZONE, Road.Geometry.Desc, VEHICLE_WEIGHT, 
-                Surface.Cond.Desc, Atmosph.Cond.Desc, SEX) %>%
-  distinct(SEVERITY, Light.Condition.Desc, Road.Surface.Type.Desc, 
-           SPEED_ZONE, Road.Geometry.Desc, VEHICLE_WEIGHT, 
-           Surface.Cond.Desc, Atmosph.Cond.Desc, SEX,
-           .keep_all = TRUE)
+                SPEED_ZONE, Road.Geometry.Desc, VEHICLE_WEIGHT, SEX, Age.Group,
+                Surface.Cond.Desc, Atmosph.Cond.Desc, HELMET_BELT_WORN_PROPERLY) 
 
 model_data$VEHICLE_WEIGHT <- model_data$VEHICLE_WEIGHT / 1000
 
-model <- polr(SEVERITY ~ Light.Condition.Desc + VEHICLE_WEIGHT + SPEED_ZONE + 
-                SEX + Surface.Cond.Desc + Atmosph.Cond.Desc + 
-                Road.Surface.Type.Desc + Road.Geometry.Desc,
-              data = model_data, Hess = TRUE)
+# Split the data set into training and testing data
+set.seed(1)
+model_data$id <- 1:nrow(model_data)
+
+#use 70% of dataset as training set and 30% as test set 
+train <- model_data %>% 
+  dplyr::sample_frac(0.90)
+test  <- dplyr::anti_join(model_data, train, by = 'id')
+```
+
+
+```{r}
+model <- polr(SEVERITY ~ HELMET_BELT_WORN_PROPERLY + Age.Group + SPEED_ZONE +
+                Road.Surface.Type.Desc + Atmosph.Cond.Desc + VEHICLE_WEIGHT +
+                Light.Condition.Desc + SEX + Road.Geometry.Desc,
+              data = train, Hess = TRUE)
 ```
 It seems like one of the variables has caused the design matrix to be not full rank. We will try to remove "Road.Geometry.Desc":
+
 ```{r}
-model <- polr(SEVERITY ~ Light.Condition.Desc + VEHICLE_WEIGHT + SPEED_ZONE + 
-                SEX + Surface.Cond.Desc + Atmosph.Cond.Desc + 
-                Road.Surface.Type.Desc,
-              data = model_data, Hess = TRUE)
+model <- polr(SEVERITY ~ HELMET_BELT_WORN_PROPERLY + Age.Group + SPEED_ZONE +
+                Road.Surface.Type.Desc + Atmosph.Cond.Desc + VEHICLE_WEIGHT +
+                Light.Condition.Desc + SEX,
+              data = train, Hess = TRUE)
 summary(model)
 ```
 The design matrix is now full rank. Now we perform _step_ function to obtain the model with the lowest AIC score:
@@ -152,7 +163,7 @@ The design matrix is now full rank. Now we perform _step_ function to obtain the
 ```{r}
 model <- step(model)
 ```
-Seems like _Atmosph.Cond.Desc_ does not contribute significantly to the model. We can verify all the other variables are significant by computing p-values, i.e., Wald test.
+We can verify all the other variables are significant by computing p-values, i.e., Wald test.
 
 ```{r}
 ctable <- coef(summary(model))
@@ -161,15 +172,71 @@ p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
 (ctable <- cbind(ctable, "p value" = p))
 ```
 ```{r}
+predicted_values <- predict(model, test, type = "class")
+accuracy <- sum(as.character(predicted_values) == as.character(test$SEVERITY)) / nrow(test)
+print(accuracy)
+```
+
+```{r}
 exp(coef(model))
 ```
 The odds ratios represent the multiplicative change in the odds of being in a higher severity category for a one-unit increase in the predictor variable, holding the other variables constant.
 
-For example, the odds ratio for 'Dark No street lights ' is 1.4744, which means that the odds of a higher severity accident are 1.47 times higher when it is dark with no street lights compared to accidents happened during day.
+For example, the odds ratio for 'Dark No street lights ' is 1.7132, which means that the odds of a higher severity accident are 1.7 times higher when it is dark with no street lights compared to accidents happened during day.
 
-Similarly, the odds ratio for 'Speed Zone 100' is 1.5883, which means that the odds of a higher severity accident are approximately 1.59 times higher in a 100 speed zone compared to the Speed Zone 60.
+Similarly, the odds ratio for 'Speed Zone 100' is 1.8582, which means that the odds of a higher severity accident are approximately 1.86 times higher in a 100 speed zone compared to the Speed Zone 60.
 
-The odds ratio for 'Sex Male' is 1.1389634, which means that the odds of a higher severity accident are approximately 1.14 times higher if the driver is a man compared to female drivers.
+The odds ratio for 'Atmosph.Cond.Desc Dusk' is 1.2322, which means that the odds of a higher severity accident are approximately 1.23 times higher if the atmospheric condition is Snowing compared to Clear condition.
 
 ## 2. Time series analysis
+
+```{r}
+df$ACCIDENTDATE <- as.Date(df$ACCIDENTDATE, format="%d/%m/%Y")
+df$ACCIDENTTIME <- as.POSIXct(df$ACCIDENTTIME, format="%H:%M:%S")
+
+# Aggregate data by day
+daily_accidents <- df %>%
+  group_by(ACCIDENTDATE) %>%
+  summarise(count=n())
+
+# Aggregate data by month
+monthly_accidents <- df %>%
+  group_by(Month = floor_date(ACCIDENTDATE, unit = "month")) %>%
+  summarise(count=n())
+
+# Aggregate data by year
+yearly_accidents <- df %>%
+  group_by(Year = format(ACCIDENTDATE, "%Y")) %>%
+  summarise(count=n())
+
+# Daily accidents
+ggplot(daily_accidents, aes(x=ACCIDENTDATE, y = count)) +
+  geom_line() +
+  ggtitle("Daily Accidents")
+
+#Monthly accidents
+ggplot(monthly_accidents, aes(x = Month, y = count)) + 
+  geom_line() +
+  scale_x_date(NULL, date_labels = "%b %y", breaks = "6 months") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+# Yearly accidents
+ggplot(yearly_accidents, aes(x=as.numeric(Year), y=count)) +
+  geom_line() +
+  scale_x_continuous(breaks=seq(1990,2020,5)) +
+  ggtitle("Yearly Accidents")
+
+```
+
+```{r}
+monthly_accidents_ts <- ts(monthly_accidents$count, 
+                           start=c(2005, 12), end = c(2018, 12),
+                           frequency=12)
+
+model <- auto.arima(monthly_accidents_ts)
+
+forecast <- forecast(model)
+
+plot(forecast, main = "Prediction for accidents over time", ylab = "Number of cases")
+```
 
